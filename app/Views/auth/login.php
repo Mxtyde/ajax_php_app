@@ -11,18 +11,13 @@
 
         <h1 class="mt-5">Login</h1>
 
-        <?php if (\Config\Services::validation()->listErrors()): ?>
-            <div class="alert alert-danger mt-3">
-                <?= \Config\Services::validation()->listErrors(); ?>
-            </div>
-        <?php endif; ?>
+        <div id="response" class="alert d-none"></div>
 
-
-        <form method="post" action="<?= site_url('auth/login') ?>" class="mt-4">
-        <?= csrf_field() ?>
+        <form id="loginForm" class="mt-4">
+            <input type="hidden" name="<?= csrf_token() ?>" value="<?= csrf_hash() ?>">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" name="username" id="username" class="form-control" placeholder="Username" value="<?= set_value('username') ?>" required>
+                <input type="text" name="username" id="username" class="form-control" placeholder="Username" required>
             </div>
 
             <div class="form-group">
@@ -36,12 +31,34 @@
         <p class="mt-3">Don't have an account? <a href="<?= site_url('auth/register') ?>">Register here</a></p>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $('#loginForm').submit(function(e) {
+            e.preventDefault();
 
-    
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+            
+            var csrfName = $('input[name=<?= csrf_token() ?>]').attr('name'); 
+            var csrfHash = $('input[name=<?= csrf_token() ?>]').val(); 
 
-    
+            $.ajax({
+                url: '<?= site_url('auth/login') ?>',
+                type: 'POST',
+                data: $(this).serialize() + '&' + csrfName + '=' + csrfHash,
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        window.location.href = '<?= site_url('welcome') ?>';
+                    } else {
+                        $('#response').removeClass('d-none alert-success').addClass('alert-danger').text(response.message);
+                    }
+
+                    $('input[name=<?= csrf_token() ?>]').val(response.csrfHash);
+                },
+                error: function() {
+                    $('#response').removeClass('d-none alert-success').addClass('alert-danger').text('An error occurred. Please try again.');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

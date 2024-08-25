@@ -17,53 +17,83 @@ class Auth extends Controller
 
     public function register()
     {
-        $data = [];
-        if ($this->request->getMethod() == 'post') {
+        if ($this->request->isAJAX()) {
             $rules = [
                 'username' => 'required|min_length[3]|is_unique[users.username]',
                 'email' => 'required|valid_email|is_unique[users.email]',
                 'password' => 'required|min_length[6]',
-                'password_confirm' => 'matches[password]'
+                'password_confirm' => 'matches[password]',
             ];
 
             if (!$this->validate($rules)) {
-                $data['validation'] = $this->validator;
-            } else {
-                $this->userModel->save([
-                    'username' => $this->request->getPost('username'),
-                    'email' => $this->request->getPost('email'),
-                    'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+                return $this->response->setJSON([
+                    'status' => 'error', 
+                    'errors' => $this->validator->getErrors(),
+                    'csrfHash' => csrf_hash(), 
                 ]);
-                
-                
-                return redirect()->to('/welcome'); //to welcome page for logging out
             }
+
+          
+            $this->userModel->save([
+                'username' => $this->request->getPost('username'),
+                'email' => $this->request->getPost('email'),
+                'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+            ]);
+
+            
+            $user = $this->userModel->where('username', $this->request->getPost('username'))->first();
+
+           
+            $this->setUserSession($user);
+
+            
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'Registration successful',
+                'redirect' => site_url('/welcome'), 
+                'csrfHash' => csrf_hash(), 
+            ]);
         }
-        return view('auth/register', $data);
+
+        return view('auth/register');
     }
 
     public function login()
     {
-        $data = [];
-        if ($this->request->getMethod() == 'post') {
+        if ($this->request->isAJAX()) {
             $rules = [
                 'username' => 'required',
                 'password' => 'required'
             ];
 
             if (!$this->validate($rules)) {
-                $data['validation'] = $this->validator;
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'errors' => $this->validator->getErrors(),
+                    'csrfHash' => csrf_hash(), 
+                ]);
+            }
+
+            $user = $this->userModel->where('username', $this->request->getPost('username'))->first();
+            if ($user && password_verify($this->request->getPost('password'), $user['password'])) {
+                $this->setUserSession($user);
+                
+                return $this->response->setJSON([
+                    'status' => 'success',
+                    'message' => 'Login successful',
+                    'redirect' => site_url('/welcome'), 
+                    'csrfHash' => csrf_hash(), 
+                ]);
             } else {
-                $user = $this->userModel->getUserByUsername($this->request->getPost('username'));
-                if ($user && password_verify($this->request->getPost('password'), $user['password'])) {
-                    $this->setUserSession($user);
-                    return redirect()->to('/welcome');
-                } else {
-                    $data['validation'] = ['password' => 'Invalid username or password'];
-                }
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Invalid username or password',
+                    'csrfHash' => csrf_hash(), 
+                ]);
             }
         }
-        return view('auth/login', $data);
+
+        return view('auth/login');
     }
 
     private function setUserSession($user)
@@ -86,6 +116,6 @@ class Auth extends Controller
 
     public function welcome()
     {
-        return view('welcome');
+        return view('welcome');  
     }
 }
